@@ -58,7 +58,7 @@ architecture test_bench of elevator_controller_fsm_tb is
 	
 	component elevator_controller_fsm is
 		Port ( i_clk 	 : in  STD_LOGIC;
-			   i_reset 	 : in  STD_LOGIC; -- synchronous
+			   i_reset 	 : in  STD_LOGIC;
 			   i_stop 	 : in  STD_LOGIC;
 			   i_up_down : in  STD_LOGIC;
 			   o_floor 	 : out STD_LOGIC_VECTOR (3 downto 0));
@@ -73,7 +73,6 @@ architecture test_bench of elevator_controller_fsm_tb is
 	
 begin
 	-- PORT MAPS ----------------------------------------
-
 	uut_inst : elevator_controller_fsm port map (
 		i_clk     => w_clk,
 		i_reset   => w_reset,
@@ -90,7 +89,6 @@ begin
 	begin
 		w_clk <= '0';
 		wait for k_clk_period/2;
-		
 		w_clk <= '1';
 		wait for k_clk_period/2;
 	end process clk_process;
@@ -99,32 +97,85 @@ begin
 	-- Test Plan Process --------------------------------
 	test_process : process 
 	begin
-        -- i_reset into initial state (o_floor 2)
-        w_reset <= '1';  wait for k_clk_period;
-            assert w_floor = x"2" report "bad reset" severity failure; 
-        -- clear reset
-		
-		-- active UP signal
-		w_up_down <= '1'; 
-		
-		-- go up a floor
-        w_stop <= '0';  wait for k_clk_period;
-            assert w_floor = x"3" report "bad up from floor2" severity failure;
-		-- try waiting on a floor
-        w_stop <= '1';  wait for k_clk_period * 2;
-            assert w_floor = x"3" report "bad wait on floor3" severity failure;
-		--  go up again
-		
-		-- go back down one floor
-		
-		-- go up the rest of the way
-		
-		-- stop at top
-        
-        -- go all the way down DOWN (how many clock cycles should that take?)
-        w_up_down <= '0'; 
-  
-		  	
+
+		-- SCENARIO 1: Reset into Floor 2 ---------------
+		w_reset   <= '1';
+		w_stop    <= '0';
+		w_up_down <= '0';
+		wait for k_clk_period;
+			assert w_floor = x"2" report "bad reset" severity failure;
+		w_reset <= '0';  -- clear reset
+		-----------------------------------------------
+
+
+		-- SCENARIO 2: Elevator going UP ----------------
+		w_up_down <= '1';
+		w_stop    <= '0';
+
+		-- floor 2 -> floor 3
+		wait for k_clk_period;
+			assert w_floor = x"3" report "bad up: floor2->floor3" severity failure;
+
+		-- SCENARIO 3: Wait (stop) on floor 3 ----------
+		w_stop <= '1';
+		wait for k_clk_period * 2;
+			assert w_floor = x"3" report "bad wait on floor3" severity failure;
+		w_stop <= '0';
+		-----------------------------------------------
+
+		-- floor 3 -> floor 4 (going up again)
+		wait for k_clk_period;
+			assert w_floor = x"4" report "bad up: floor3->floor4" severity failure;
+
+		-- SCENARIO 4: Stop at top floor (floor 4) -----
+		-- elevator should stay at floor 4 while i_up_down = '1'
+		w_stop <= '0';
+		wait for k_clk_period * 2;
+			assert w_floor = x"4" report "bad hold at top floor4" severity failure;
+		-----------------------------------------------
+
+
+		-- SCENARIO 5: Elevator going DOWN --------------
+		w_up_down <= '0';
+		w_stop    <= '0';
+
+		-- floor 4 -> floor 3
+		wait for k_clk_period;
+			assert w_floor = x"3" report "bad down: floor4->floor3" severity failure;
+
+		-- floor 3 -> floor 2
+		wait for k_clk_period;
+			assert w_floor = x"2" report "bad down: floor3->floor2" severity failure;
+
+		-- floor 2 -> floor 1
+		wait for k_clk_period;
+			assert w_floor = x"1" report "bad down: floor2->floor1" severity failure;
+
+		-- SCENARIO 6: Stop at bottom floor (floor 1) --
+		-- elevator should stay at floor 1 while i_up_down = '0'
+		wait for k_clk_period * 2;
+			assert w_floor = x"1" report "bad hold at bottom floor1" severity failure;
+		-----------------------------------------------
+
+
+		-- SCENARIO 7: Go back up to verify full cycle --
+		w_up_down <= '1';
+		w_stop    <= '0';
+
+		-- floor 1 -> floor 2
+		wait for k_clk_period;
+			assert w_floor = x"2" report "bad up: floor1->floor2" severity failure;
+
+		-- floor 2 -> floor 3
+		wait for k_clk_period;
+			assert w_floor = x"3" report "bad up: floor2->floor3 (cycle2)" severity failure;
+
+		-- floor 3 -> floor 4
+		wait for k_clk_period;
+			assert w_floor = x"4" report "bad up: floor3->floor4 (cycle2)" severity failure;
+		-----------------------------------------------
+
+
 		wait; -- wait forever
 	end process;	
 	-----------------------------------------------------	
